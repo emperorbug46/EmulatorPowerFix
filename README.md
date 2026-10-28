@@ -4,6 +4,8 @@ Fix for a slow Android Emulator on Windows 11 with Intel hybrid CPUs (12th gen a
 
 Upstream report: **[Google Issue Tracker 572278410](https://issuetracker.google.com/issues/572278410)**. Root-cause analysis and measurements by **Mert Özallı** ([@emperorbug46](https://github.com/emperorbug46)).
 
+> **Status (28 Oct 2026): fixed in Android Emulator 37.3.6.** Google accepted the diagnosis, merged a fix on 21 Oct 2026 and shipped it in emulator **37.3.6** (canary/dev channel) on 28 Oct 2026. Verified on the original test machine: with no workaround, the emulator opts its own qemu process out of power throttling, cold boot takes 46 s with 0 ANRs, and the load is spread over the P-cores and E-cores. **Update the emulator; the script below is only needed on 37.3.5 or older.**
+
 *Unofficial. Not affiliated with Google, Android or Intel.*
 
 [English](#english) · [Türkçe](#türkçe)
@@ -55,6 +57,8 @@ Run D shows that pinning and priority add nothing: the power-throttling opt-out 
 
 ### 4. Usage
 
+Only needed on emulator **37.3.5 or older**. On 37.3.6 or newer, update instead (see [6. The real fix](#6-the-real-fix)).
+
 Download [`emulator_power_fix.ps1`](emulator_power_fix.ps1), then run it in Windows PowerShell 5.1 or PowerShell 7. No administrator rights needed.
 
 After the emulator has started:
@@ -102,7 +106,25 @@ s.StateMask   = 0;   /* never throttle */
 SetProcessInformation(GetCurrentProcess(), ProcessPowerThrottling, &s, sizeof(s));
 ```
 
-This is proposed in [issue 572278410](https://issuetracker.google.com/issues/572278410). The Windows side (a VM process running WHPX vCPUs should not be classified as background work) has also been reported to Microsoft through Feedback Hub. If this affects you, a **+1** on the issue helps it get prioritized.
+This was proposed in [issue 572278410](https://issuetracker.google.com/issues/572278410). On 21 Oct 2026 the emulator team merged a fix and marked the issue Fixed, and on 28 Oct 2026 it shipped in emulator **37.3.6** (canary/dev channel).
+
+Verified on 37.3.6, on the same machine and AVD as in [3. Measurements](#3-measurements), headless cold boot, without the script:
+
+| Emulator | Workaround | boot_completed | ANRs | qemu CPU peak |
+|---|---|---|---|---|
+| 36.6.11 | none | 74–126 s | 3–10 | ~3.8 LP |
+| 36.6.11 | this script | 42 s | 1 | ~9.6 LP |
+| **37.3.6** | **none** | **46 s** | **0** | **~9.8 LP** |
+
+On 37.3.6, `GetProcessInformation(ProcessPowerThrottling)` on the qemu process reports EXECUTION_SPEED throttling as off from the first second, and the P-cores and E-cores are loaded evenly. The script changes nothing there any more.
+
+To get it before it reaches the stable channel, choose the Canary channel in Android Studio (Settings → Appearance & Behavior → System Settings → Updates) and update Android Emulator in the SDK Manager, or run:
+
+```bat
+sdkmanager --channel=2 emulator
+```
+
+The Windows side (a VM process running WHPX vCPUs should not be classified as background work) has also been reported to Microsoft through Feedback Hub.
 
 ### 7. Related
 
@@ -140,6 +162,8 @@ Aynı AVD, soğuk açılış, art arda çalıştırmalar: kısıtlama açıkken 
 
 ### 4. Kullanım
 
+Yalnız emülatör **37.3.5 ya da daha eskiyse** gerekir. 37.3.6 ve sonrasında betik yerine emülatörü güncelleyin (bkz. [6. Asıl çözüm](#6-asıl-çözüm)).
+
 [`emulator_power_fix.ps1`](emulator_power_fix.ps1) dosyasını indirip Windows PowerShell 5.1 ya da PowerShell 7'de çalıştırın. Yönetici hakkı gerekmez.
 
 Emülatör açıldıktan sonra:
@@ -168,7 +192,11 @@ Pencereli emülatör için aynı klasördeki `qemu-system-x86_64.exe`'yi kullan�
 
 ### 6. Asıl çözüm
 
-Emülatörün açılışta bu çağrıyı kendisinin yapması, etkilenen bütün Windows kullanıcıları için sorunu çözer. Bu öneri [572278410 numaralı kayıtta](https://issuetracker.google.com/issues/572278410) Google'a iletildi; Windows tarafı da Feedback Hub üzerinden Microsoft'a bildirildi. Sizi de etkiliyorsa kayda **+1** vermek önceliklendirilmesine yardım eder.
+Emülatörün açılışta bu çağrıyı kendisinin yapması, etkilenen bütün Windows kullanıcıları için sorunu çözer. Bu öneri [572278410 numaralı kayıtta](https://issuetracker.google.com/issues/572278410) Google'a iletildi. Emülatör ekibi 21.10.2026'da düzeltmeyi birleştirip kaydı "Fixed" olarak kapattı; düzeltme 28.10.2026'da emülatörün **37.3.6** sürümüyle (canary/dev kanalı) yayımlandı.
+
+Aynı makine ve AVD'de, betik olmadan doğrulandı: 37.3.6 qemu sürecinde güç kısıtlamasını açılışın ilk saniyesinden kendisi kapatıyor; soğuk açılış **46 sn, 0 ANR**, qemu tepe kullanımı ~9,8 mantıksal işlemci, yük P ve E çekirdeklere eşit dağılıyor. Bu sürümde betik artık bir şey değiştirmiyor.
+
+Kararlı kanala gelmeden almak için Android Studio'da Canary kanalını seçip (Settings → Appearance & Behavior → System Settings → Updates) SDK Manager'dan Android Emulator'ı güncelleyin ya da `sdkmanager --channel=2 emulator` çalıştırın. Windows tarafı da Feedback Hub üzerinden Microsoft'a bildirildi.
 
 ### 7. Lisans
 
